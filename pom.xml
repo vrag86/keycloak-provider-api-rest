@@ -55,6 +55,30 @@
                     <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <artifactId>exec-maven-plugin</artifactId>
+                <groupId>org.codehaus.mojo</groupId>
+                <version>1.4.0</version>
+                <executions>
+                    <execution>
+                        <id>Keycloak docker jar deployment</id>
+                        <phase>install</phase>
+                        <configuration>
+                            <echo>TASK - copying files to docker....</echo>
+                            <executable>/usr/bin/docker</executable>
+                            <arguments>
+                                <argument>cp</argument>
+                                <argument>/home/anna/java/keycloak-provider-api-rest/target/provider-api-rest.jar</argument>
+                                <argument>keycloak_keycloak_1:/opt/jboss/keycloak/standalone/deployments/</argument>
+                            </arguments>
+                        </configuration>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
