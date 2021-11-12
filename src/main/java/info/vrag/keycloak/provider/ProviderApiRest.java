@@ -153,18 +153,8 @@ public class ProviderApiRest implements RealmResourceProvider {
     /*
         Создание нового юзера Keycloak, если его нет
      */
-    private UserModel createFederatedUserFromContext (BrokeredIdentityContext context) {
-        String username = context.getModelUsername();
-        if (username == null) {
-            if (this.realm.isRegistrationEmailAsUsername() && !Validation.isBlank(context.getEmail())) {
-                username = context.getEmail();
-            } else if (context.getUsername() == null) {
-                username = context.getIdpConfig().getAlias() + "." + context.getId();
-            } else {
-                username = context.getUsername();
-            }
-        }
-        username = username.trim();
+    private UserModel createFederatedUserFromContext(BrokeredIdentityContext context) {
+        String username = getUsername(context);
         context.setModelUsername(username);
 
         if (context.getEmail() != null && !this.realm.isDuplicateEmailsAllowed()) {
@@ -174,7 +164,13 @@ public class ProviderApiRest implements RealmResourceProvider {
             }
         }
 
-        UserModel user = this.session.users().addUser(this.realm, context.getModelUsername());
+        UserModel user = null;
+        try {
+            user = this.session.users().addUser(this.realm, context.getModelUsername());
+        } catch (Exception e) {
+            throw new IdentityBrokerException("Can't create user with username: \"" + context.getModelUsername() + "\"");
+        }
+
         user.setEnabled(true);
         user.setEmail(context.getEmail());
         user.setFirstName(context.getFirstName());
@@ -202,6 +198,25 @@ public class ProviderApiRest implements RealmResourceProvider {
         }
         updateFederatedIdentity(context, user);
         return user;
+    }
+
+    private String getUsername(BrokeredIdentityContext context) {
+        String username = context.getModelUsername();
+        if (username == null) {
+            String usernameFromAttribute = context.getUserAttribute("username");
+            if (!Validation.isBlank(usernameFromAttribute)) {
+                username = usernameFromAttribute;
+            }
+            else if (this.realm.isRegistrationEmailAsUsername() && !Validation.isBlank(context.getEmail())) {
+                username = context.getEmail();
+            } else if (context.getUsername() == null) {
+                username = context.getIdpConfig().getAlias() + "." + context.getId();
+            } else {
+                username = context.getUsername();
+            }
+        }
+        username = username.trim();
+        return username;
     }
 
     /*
