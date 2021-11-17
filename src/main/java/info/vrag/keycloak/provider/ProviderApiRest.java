@@ -58,6 +58,16 @@ public class ProviderApiRest implements RealmResourceProvider {
     public Object getResource() {
         return this;
     }
+    /*
+        Link user by social code (apple id)
+     */
+    @POST
+    @Path("/{provider_id}/link-social-code")
+    public Response linkByProviderSocialCode(@PathParam("provider_id") String providerId,
+                                             @QueryParam("code") String code
+    ) {
+        return processProviderRequest(providerId, code);
+    }
 
     /*
         Link user by provider access token
@@ -67,7 +77,13 @@ public class ProviderApiRest implements RealmResourceProvider {
     public Response linkByProviderAccessToken(@PathParam("provider_id") String providerId,
                                               @QueryParam("access_token") String access_token
     ) {
-        //IdentityProviderModel identityProviderModel = realm.getIdentityProviderByAlias(providerId);
+        // Original token {"access_token":"3d0317aa0293f6a63d0c471e8c342fa5f7608c9dcad1109f2cb455a9f8879ddb6e897181441a5fa56c784","expires_in":0,"user_id":12127217,"email":"vrag86@mail.ru"}
+        String providerRequest = mapper.createObjectNode().put("access_token", access_token).toString();
+
+        return processProviderRequest(providerId, providerRequest);
+    }
+
+    private Response processProviderRequest(String providerId, String providerRequest) {
         AbstractOAuth2IdentityProvider provider;
         try {
             provider = getIdentityProvider(providerId);
@@ -77,18 +93,19 @@ public class ProviderApiRest implements RealmResourceProvider {
         }
 
         IdentityProviderModel identityProviderConfig = provider.getConfig();
-
-        // Original token {"access_token":"3d0317aa0293f6a63d0c471e8c342fa5f7608c9dcad1109f2cb455a9f8879ddb6e897181441a5fa56c784","expires_in":0,"user_id":12127217,"email":"vrag86@mail.ru"}
-        String providerRequest = mapper.createObjectNode().put("access_token", access_token).toString();
-
         BrokeredIdentityContext context = null;
         try {
             context = provider.getFederatedIdentity(providerRequest);
+        }
+        catch (IdentityBrokerException e) {
+            logger.errorf(e, "");
+            return response_error(e.getMessage());
         }
         catch (Exception e) {
             logger.errorf(e, "");
             return response_error("Token processing error");
         }
+
 
         try {
             if (identityProviderConfig.isStoreToken() && context.getToken() == null) {
@@ -107,7 +124,6 @@ public class ProviderApiRest implements RealmResourceProvider {
             logger.errorf(e, "");
             return response_error("Unknown error");
         }
-
     }
 
     private UserModel authenticated(BrokeredIdentityContext context) {
